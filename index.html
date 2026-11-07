@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="app-root" content="./">
+  <meta name="theme-color" content="#f4f5f7">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Medic">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/icon-180.png">
+  <link rel="stylesheet" href="assets/style.css">
+  <title>Medic</title>
+  <style>
+    .today { display: block; text-decoration: none; color: inherit; background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 18px; padding: 16px; margin: 8px 0 14px; }
+    .today .k { font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--accent); }
+    .today strong { display: block; font-size: 1.15rem; margin: 2px 0; }
+    .apps { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .app { display: flex; flex-direction: column; gap: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 16px; text-decoration: none; color: var(--text); box-shadow: var(--shadow); min-height: 130px; }
+    .app .emoji { font-size: 2rem; }
+    .app strong { font-size: 1.05rem; }
+    .app .status { color: var(--muted); font-size: .85rem; margin-top: auto; }
+    .soon li { min-height: 0; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <header class="top"><h1>Medic</h1></header>
+  <main>
+    <a class="today" href="fitness/" id="today">
+      <span class="k">Today</span>
+      <strong id="today-title">Set up your training</strong>
+      <span class="small muted" id="today-sub">Takes a minute. Then each day plans itself around your shifts.</span>
+    </a>
+
+    <div class="apps">
+      <a class="app" href="fitness/"><span class="emoji">💪</span><strong>Fitness</strong><span class="status" id="s-fitness">Train around your shifts</span></a>
+      <a class="app" href="shifts/"><span class="emoji">🚒</span><strong>Shifts</strong><span class="status" id="s-shifts">Set your rotation</span></a>
+    </div>
+
+    <h2>Coming next</h2>
+    <ul class="list soon">
+      <li>🧰 Rig checks: daily truck checklist and expiry dates</li>
+      <li>📘 Protocols: offline, searchable reference</li>
+      <li>🛌 Recovery: sleep after nights, and a private decompression journal</li>
+    </ul>
+
+    <section class="card" style="margin-top:24px">
+      <h2 style="margin-top:0">Backup</h2>
+      <p class="muted small">Everything is saved on this phone only. Save a backup file now and then.</p>
+      <div class="row">
+        <button class="btn secondary grow" id="export">Save backup</button>
+        <button class="btn secondary grow" id="import">Restore backup</button>
+      </div>
+      <input type="file" id="file" accept="application/json,.json" class="hidden">
+    </section>
+  </main>
+
+  <script src="assets/common.js"></script>
+  <script src="assets/program.js"></script>
+  <script>
+    const today = isoDate();
+    const shifts = getShifts();
+    const profile = Store.get('fitness:profile', null);
+    const log = Store.get('fitness:log', []);
+
+    if (shifts) {
+      const next = nextShift(addDays(today, 1), shifts);
+      document.getElementById('s-shifts').textContent = shiftStatus(today, shifts) === 'on'
+        ? 'On shift today' : next ? `Next: ${friendlyDate(next)}` : 'No shifts coming up';
+    }
+
+    if (profile) {
+      const plan = planFor(today, profile, log, shifts);
+      const draft = Store.get('fitness:draft', null);
+      const type = draft?.date === today ? draft.type : plan.type;
+      const t = SESSION_TYPES[type];
+      const doneToday = log.some(s => s.date === today);
+      document.getElementById('today-title').textContent = `${t.emoji} ${t.title}`;
+      document.getElementById('today-sub').textContent = doneToday ? '✓ Logged today. Nice work.' : plan.reason;
+      const target = LEVELS[profile.level]?.target || 3;
+      document.getElementById('s-fitness').textContent = `${mainSessionsInWeek(log, today)} of ${target} this week`;
+    }
+
+    document.getElementById('export').addEventListener('click', () => {
+      const blob = new Blob([JSON.stringify(Store.dump(), null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `medic-backup-${today}.json`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    });
+    const file = document.getElementById('file');
+    document.getElementById('import').addEventListener('click', () => file.click());
+    file.addEventListener('change', async () => {
+      if (!file.files[0]) return;
+      try {
+        const data = JSON.parse(await file.files[0].text());
+        if (!Object.keys(data).some(k => k.startsWith('medic:'))) throw 0;
+        if (!confirm('Replace what is on this phone with the backup?')) return;
+        Store.restore(data);
+        location.reload();
+      } catch {
+        alert('That file is not a Medic backup.');
+      } finally {
+        file.value = '';
+      }
+    });
+  </script>
+</body>
+</html>

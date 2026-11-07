@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="app-root" content="../">
+  <meta name="theme-color" content="#f4f5f7">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="../manifest.webmanifest">
+  <link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="../assets/icon-180.png">
+  <link rel="stylesheet" href="../assets/style.css">
+  <title>Fitness</title>
+  <style>
+    .day-card strong { display: block; font-size: 1.15rem; }
+    .session-head { display: flex; align-items: center; gap: 10px; }
+    .session-head .emoji { font-size: 1.8rem; }
+    .session-head h2 { margin: 0; flex: 1; }
+    .block h3 { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 16px 0 6px; }
+    .ex { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
+    .ex .name { font-weight: 600; }
+    .ex .dose { color: var(--muted); font-size: .85rem; }
+    .sets { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }
+    .sets button {
+      width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--border);
+      background: transparent; color: var(--muted); font: inherit; font-size: .8rem; font-weight: 700; cursor: pointer;
+    }
+    .sets button.on { background: var(--good); border-color: var(--good); color: #fff; }
+    .sets input { width: 92px; padding: 6px 8px; margin-left: auto; }
+    .ex.complete { border-color: var(--good); }
+    .last { font-size: .75rem; color: var(--muted); width: 100%; text-align: right; }
+    .weeks { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; align-items: end; height: 110px; margin-top: 8px; }
+    .weeks div { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; gap: 4px; font-size: .7rem; color: var(--muted); }
+    .weeks span.b { width: 100%; background: var(--accent); border-radius: 6px 6px 2px 2px; min-height: 3px; }
+    .weeks span.b.hit { background: var(--good); }
+    .weeks span.b.zero { background: var(--border); }
+    .bench { display: flex; align-items: center; gap: 10px; }
+    .bench .grow { flex: 1; min-width: 0; }
+    .bench svg { width: 90px; height: 32px; flex-shrink: 0; }
+    .checks label { display: flex; align-items: center; gap: 10px; font-weight: 400; color: var(--text); font-size: 1rem; margin: 8px 0; }
+    .checks input { width: 20px; height: 20px; flex-shrink: 0; }
+    .note { border-left: 3px solid var(--warn); padding: 6px 10px; background: var(--surface); border-radius: 6px; margin: 8px 0; }
+  </style>
+</head>
+<body>
+  <header class="top"><a class="back" href="../">‹ Home</a><h1>Fitness</h1></header>
+  <main>
+    <div class="tabs">
+      <button data-tab="today">Today</button>
+      <button data-tab="progress">Progress</button>
+      <button data-tab="profile">Profile</button>
+    </div>
+
+    <!-- Today -->
+    <section id="tab-today">
+      <div class="card day-card" id="day-card"></div>
+      <div id="injury" class="note small hidden"></div>
+      <div id="session"></div>
+      <div class="card" id="finish">
+        <label for="rpe">How hard was it? (1 easy – 10 all-out)</label>
+        <select id="rpe">
+          <option value="">Skip</option>
+          <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
+          <option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
+        </select>
+        <label for="note">Notes (optional)</label>
+        <input id="note" placeholder="e.g. knee felt fine, went up on squats">
+        <button class="btn block" id="log" style="margin-top:12px">✅ Log this session</button>
+      </div>
+      <label for="swap">Doing something else today?</label>
+      <select id="swap"></select>
+    </section>
+
+    <!-- Progress -->
+    <section id="tab-progress">
+      <div class="card">
+        <strong id="week-line"></strong>
+        <div class="bar" style="margin-top:8px"><span id="week-bar"></span></div>
+        <div class="weeks" id="weeks"></div>
+        <p class="small muted" style="margin:8px 0 0">Sessions per week, last 8 weeks. Green = target hit.</p>
+      </div>
+
+      <h2>Benchmarks</h2>
+      <p class="small muted" style="margin-top:0">Test these every 4–6 weeks, on a rested day.</p>
+      <ul class="list" id="benches"></ul>
+      <button class="btn secondary block" id="add-bench">+ Add a result</button>
+
+      <h2>History</h2>
+      <ul class="list" id="history"></ul>
+    </section>
+
+    <!-- Profile -->
+    <section id="tab-profile">
+      <div id="welcome" class="card hidden">
+        <strong>Let's set you up</strong>
+        <p class="small muted" style="margin:4px 0 0">Answer these once. Training then plans itself around your shifts: short sessions on shift, recovery the day after, and real training on days off.</p>
+      </div>
+      <form id="profile-form" class="card">
+        <label for="level">Where are you starting?</label>
+        <select id="level"></select>
+        <label>Goals</label>
+        <div class="checks" id="goals"></div>
+        <label>Where can you train?</label>
+        <div class="checks" id="equipment"></div>
+        <label for="unit">Body weight in</label>
+        <select id="unit"><option value="lb">lb</option><option value="kg">kg</option></select>
+        <label for="injury-input">Injuries or things to work around (optional)</label>
+        <input id="injury-input" placeholder="e.g. left knee, lower back">
+        <button class="btn block" style="margin-top:14px">Save</button>
+        <p class="small muted" style="margin:10px 0 0">If something hurts sharply or keeps getting worse, stop that exercise and get it checked. If you've had heart or blood pressure issues, clear new training with your doctor first.</p>
+      </form>
+      <p class="small muted" id="no-shifts">Set your rotation in <a href="../shifts/">Shifts</a> so training plans around it.</p>
+    </section>
+  </main>
+
+  <dialog id="bench-dialog">
+    <form method="dialog" id="bench-form">
+      <h3>Add a result</h3>
+      <label for="bench-key">Test</label>
+      <select id="bench-key"></select>
+      <label for="bench-value" id="bench-value-label">Result</label>
+      <input id="bench-value" required inputmode="decimal" autocomplete="off">
+      <label for="bench-date">Date</label>
+      <input type="date" id="bench-date" required>
+      <div class="actions">
+        <button class="btn secondary" type="button" id="bench-cancel">Cancel</button>
+        <button class="btn" value="save">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="../assets/common.js"></script>
+  <script src="../assets/program.js"></script>
+  <script>
+    const today = isoDate();
+    let profile = Store.get('fitness:profile', null);
+    let log = Store.get('fitness:log', []);
+    const shifts = getShifts();
+    const saveLog = () => Store.set('fitness:log', log);
+
+    // Exercises where a weight is worth writing down.
+    const LOADED = new Set(['squat', 'hinge', 'push', 'row', 'lunge', 'press', 'pull', 'carry', 'step']);
+
+    // ---- Today ----
+    let draft = Store.get('fitness:draft', null);
+    if (!draft || draft.date !== today) draft = null;
+
+    function currentType() {
+      return draft?.type || planFor(today, profile, log, shifts).type;
+    }
+
+    function lastWeight(name) {
+      for (let i = log.length - 1; i >= 0; i--) {
+        const w = log[i].weights?.[name];
+        if (w) return { w, date: log[i].date };
+      }
+      return null;
+    }
+
+    function renderToday() {
+      if (!profile) return;
+      const plan = planFor(today, profile, log, shifts);
+      const type = currentType();
+      const session = buildSession(type, profile, { onShift: plan.onShift });
+      const loggedToday = log.filter(s => s.date === today);
+
+      const status = plan.onShift ? '🚒 On shift today'
+        : plan.type === 'recovery' ? '😮‍💨 Off shift: recovery day'
+        : shifts ? '🏠 Day off' : '📅 Today';
+      document.getElementById('day-card').innerHTML =
+        `<strong>${status}</strong><span class="muted">${esc(plan.reason)}</span>` +
+        (loggedToday.length ? `<div class="small" style="margin-top:6px;color:var(--good)">✓ Logged today: ${loggedToday.map(s => esc(SESSION_TYPES[s.type]?.title || s.type)).join(', ')}</div>` : '');
+
+      const inj = document.getElementById('injury');
+      inj.classList.toggle('hidden', !profile.injury);
+      inj.textContent = profile.injury ? `Working around: ${profile.injury}. Swap or skip anything that aggravates it.` : '';
+
+      const checks = draft?.checks || {};
+      const weights = draft?.weights || {};
+      document.getElementById('session').innerHTML = `
+        <div class="session-head" style="margin-top:14px">
+          <span class="emoji">${session.emoji}</span><h2>${esc(session.title)}</h2>
+        </div>
+        <p class="muted small" style="margin:6px 0 0">${esc(session.intro)}</p>
+        ${session.blocks.map(b => `
+          <div class="block">
+            <h3>${esc(b.title)}</h3>
+            ${b.items.map(it => {
+              const n = checks[it.key] || 0;
+              const lw = LOADED.has(it.key) ? lastWeight(it.name) : null;
+              return `
+              <div class="ex ${n >= it.sets ? 'complete' : ''}" data-key="${it.key}" data-name="${esc(it.name)}">
+                <div class="name">${esc(it.name)}</div>
+                <div class="dose">${it.sets > 1 ? `${it.sets} × ` : ''}${esc(it.reps)}</div>
+                <div class="sets">
+                  ${Array.from({ length: it.sets }, (_, i) =>
+                    `<button type="button" class="${i < n ? 'on' : ''}" data-set="${i + 1}" aria-label="Set ${i + 1}">${i < n ? '✓' : i + 1}</button>`).join('')}
+                  ${LOADED.has(it.key) ? `<input data-weight placeholder="weight" value="${esc(weights[it.name] || '')}" autocomplete="off">` : ''}
+                  ${lw ? `<span class="last">Last time: ${esc(lw.w)} (${esc(friendlyDate(lw.date))})</span>` : ''}
+                </div>
+              </div>`;
+            }).join('')}
+          </div>`).join('')}`;
+
+      document.getElementById('rpe').value = draft?.rpe || '';
+      document.getElementById('note').value = draft?.note || '';
+
+      const swap = document.getElementById('swap');
+      swap.innerHTML = `<option value="">Keep: ${esc(SESSION_TYPES[type].title)}</option>` +
+        Object.entries(SESSION_TYPES).filter(([k]) => k !== type)
+          .map(([k, t]) => `<option value="${k}">${t.emoji} ${esc(t.title)}</option>`).join('');
+    }
+
+    function touchDraft() {
+      draft = draft || { date: today, type: currentType(), checks: {}, weights: {} };
+      return draft;
+    }
+    const saveDraft = () => Store.set('fitness:draft', draft);
+
+    document.getElementById('session').addEventListener('click', e => {
+      const b = e.target.closest('button[data-set]');
+      if (!b) return;
+      const key = b.closest('.ex').dataset.key;
+      const d = touchDraft();
+      const n = Number(b.dataset.set);
+      // Tap the next set to tick it; tap the last ticked one to untick.
+      d.checks[key] = (d.checks[key] || 0) >= n ? n - 1 : n;
+      saveDraft();
+      renderToday();
+    });
+    document.getElementById('session').addEventListener('change', e => {
+      if (!e.target.matches('input[data-weight]')) return;
+      const d = touchDraft();
+      d.weights[e.target.closest('.ex').dataset.name] = e.target.value.trim();
+      saveDraft();
+    });
+    for (const id of ['rpe', 'note']) {
+      document.getElementById(id).addEventListener('change', e => { touchDraft()[id] = e.target.value; saveDraft(); });
+    }
+
+    document.getElementById('swap').addEventListener('change', e => {
+      if (!e.target.value) return;
+      draft = { date: today, type: e.target.value, checks: {}, weights: {} };
+      saveDraft();
+      renderToday();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    document.getElementById('log').addEventListener('click', () => {
+      const type = currentType();
+      const d = draft || {};
+      const ticked = Object.values(d.checks || {}).reduce((a, b) => a + b, 0);
+      if (!ticked && !confirm('Nothing ticked yet. Log it as done anyway?')) return;
+      const weights = Object.fromEntries(Object.entries(d.weights || {}).filter(([, v]) => v));
+      log.push({
+        id: uid(), date: today, type,
+        sets: ticked, weights,
+        rpe: Number(document.getElementById('rpe').value) || null,
+        note: document.getElementById('note').value.trim(),
+      });
+      saveLog();
+      draft = null;
+      localStorage.removeItem('medic:fitness:draft');
+      renderToday();
+      renderProgress();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    // ---- Progress ----
+    const unit = () => profile?.unit || 'lb';
+    const BENCHES = {
+      weight: { label: 'Body weight', unit, better: () => (profile?.goals || []).includes('weight') ? 'down' : null },
+      pushups: { label: 'Max push-ups', unit: () => 'reps', better: () => 'up' },
+      plank: { label: 'Plank hold', unit: () => 'sec', better: () => 'up' },
+      run: { label: '1.5-mile run', unit: () => 'mm:ss', better: () => 'down', time: true },
+      rhr: { label: 'Resting heart rate', unit: () => 'bpm', better: () => 'down' },
+    };
+    let benches = Store.get('fitness:bench', {});
+
+    const fmtTime = s => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
+    const fmtBench = (k, v) => BENCHES[k].time ? fmtTime(v) : `${v} ${BENCHES[k].unit()}`;
+
+    function sparkline(points) {
+      if (points.length < 2) return '';
+      const vals = points.map(p => p.value);
+      const min = Math.min(...vals), max = Math.max(...vals), span = max - min || 1;
+      const xy = points.map((p, i) => `${(i / (points.length - 1)) * 86 + 2},${30 - ((p.value - min) / span) * 26 - 2}`);
+      return `<svg viewBox="0 0 90 32" aria-hidden="true"><polyline points="${xy.join(' ')}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+    }
+
+    function renderProgress() {
+      if (!profile) return;
+      const target = LEVELS[profile.level]?.target || 3;
+      const done = mainSessionsInWeek(log, today);
+      document.getElementById('week-line').textContent = `${done} of ${target} sessions this week`;
+      const bar = document.getElementById('week-bar');
+      bar.style.width = Math.min(100, (done / target) * 100) + '%';
+
+      const thisWeek = weekStartOf(today);
+      const weeks = Array.from({ length: 8 }, (_, i) => addDays(thisWeek, (i - 7) * 7));
+      const counts = weeks.map(w => mainSessionsInWeek(log, w));
+      const top = Math.max(target, ...counts);
+      document.getElementById('weeks').innerHTML = weeks.map((w, i) => `
+        <div><span>${counts[i] || ''}</span>
+          <span class="b ${counts[i] >= target ? 'hit' : counts[i] ? '' : 'zero'}" style="height:${(counts[i] / top) * 80}%"></span>
+          <span>${parseDate(w).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' })}</span></div>`).join('');
+
+      document.getElementById('benches').innerHTML = Object.entries(BENCHES).map(([k, b]) => {
+        const pts = (benches[k] || []).slice().sort((a, c) => a.date.localeCompare(c.date));
+        const last = pts[pts.length - 1];
+        let change = '';
+        if (pts.length > 1) {
+          const diff = last.value - pts[0].value;
+          const good = b.better() === 'up' ? diff > 0 : b.better() === 'down' ? diff < 0 : null;
+          const txt = b.time ? (diff < 0 ? '−' : '+') + fmtTime(Math.abs(diff)) : (diff > 0 ? '+' : '') + Math.round(diff * 10) / 10;
+          change = diff ? ` <span class="pill ${good === true ? 'good' : good === false ? 'bad' : ''}">${txt} since ${parseDate(pts[0].date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>` : '';
+        }
+        return `<li class="bench"><div class="grow">
+            <div class="title">${b.label}</div>
+            <div class="small muted">${last ? `${fmtBench(k, last.value)} · ${friendlyDate(last.date)}` : 'No results yet'}${change}</div>
+          </div>${sparkline(pts)}</li>`;
+      }).join('');
+
+      const hist = log.slice().sort((a, c) => c.date.localeCompare(a.date)).slice(0, 30);
+      document.getElementById('history').innerHTML = hist.length ? hist.map(s => `
+        <li data-id="${s.id}">
+          <span style="font-size:1.3rem">${SESSION_TYPES[s.type]?.emoji || '✅'}</span>
+          <div class="grow">
+            <div class="title">${esc(SESSION_TYPES[s.type]?.title || s.type)}</div>
+            <div class="small muted">${esc(friendlyDate(s.date))}${s.rpe ? ` · effort ${s.rpe}/10` : ''}${s.note ? ` · ${esc(s.note)}` : ''}</div>
+          </div>
+          <button class="icon" data-del aria-label="Delete">✕</button>
+        </li>`).join('') : '<div class="empty">Logged sessions show up here.</div>';
+    }
+
+    document.getElementById('history').addEventListener('click', e => {
+      if (!e.target.closest('[data-del]')) return;
+      if (!confirm('Delete this session?')) return;
+      const id = e.target.closest('li').dataset.id;
+      log = log.filter(s => s.id !== id);
+      saveLog();
+      renderProgress();
+      renderToday();
+    });
+
+    const benchDialog = document.getElementById('bench-dialog');
+    const benchKey = document.getElementById('bench-key');
+    benchKey.innerHTML = Object.entries(BENCHES).map(([k, b]) => `<option value="${k}">${b.label}</option>`).join('');
+    const benchLabel = () => {
+      const b = BENCHES[benchKey.value];
+      document.getElementById('bench-value-label').textContent = `Result (${b.unit()})`;
+      document.getElementById('bench-value').placeholder = b.time ? 'e.g. 12:30' : '';
+      document.getElementById('bench-value').inputMode = b.time ? 'text' : 'decimal';
+    };
+    benchKey.addEventListener('change', benchLabel);
+    document.getElementById('add-bench').addEventListener('click', () => {
+      document.getElementById('bench-value').value = '';
+      document.getElementById('bench-date').value = today;
+      benchLabel();
+      benchDialog.showModal();
+    });
+    document.getElementById('bench-cancel').addEventListener('click', () => benchDialog.close());
+    document.getElementById('bench-form').addEventListener('submit', e => {
+      const k = benchKey.value;
+      const raw = document.getElementById('bench-value').value.trim();
+      let value;
+      if (BENCHES[k].time) {
+        const m = raw.match(/^(\d+)(?::(\d{1,2}))?$/);
+        value = m ? Number(m[1]) * 60 + Number(m[2] || 0) : NaN;
+      } else {
+        value = Number(raw.replace(',', '.'));
+      }
+      if (!(value > 0)) { e.preventDefault(); return alert(BENCHES[k].time ? 'Enter a time like 12:30.' : 'Enter a number.'); }
+      (benches[k] = benches[k] || []).push({ date: document.getElementById('bench-date').value || today, value });
+      Store.set('fitness:bench', benches);
+      renderProgress();
+    });
+
+    // ---- Profile ----
+    function fillProfile() {
+      const p = profile || { level: 'base', goals: [], equipment: [], unit: 'lb', injury: '' };
+      document.getElementById('level').innerHTML = Object.entries(LEVELS)
+        .map(([k, l]) => `<option value="${k}" ${p.level === k ? 'selected' : ''}>${l.label} (${l.target} sessions a week)</option>`).join('');
+      const boxes = (id, src, chosen) => {
+        document.getElementById(id).innerHTML = Object.entries(src).map(([k, label]) =>
+          `<label><input type="checkbox" value="${k}" ${chosen.includes(k) ? 'checked' : ''}> ${esc(label)}</label>`).join('');
+      };
+      boxes('goals', GOALS, p.goals);
+      boxes('equipment', EQUIPMENT, p.equipment);
+      document.getElementById('unit').value = p.unit || 'lb';
+      document.getElementById('injury-input').value = p.injury || '';
+      document.getElementById('welcome').classList.toggle('hidden', !!profile);
+      document.getElementById('no-shifts').classList.toggle('hidden', !!shifts);
+    }
+
+    document.getElementById('profile-form').addEventListener('submit', e => {
+      e.preventDefault();
+      const picked = id => [...document.querySelectorAll(`#${id} input:checked`)].map(i => i.value);
+      const goals = picked('goals');
+      const equipment = picked('equipment');
+      if (!goals.length) return alert('Pick at least one goal.');
+      if (!equipment.length) return alert('Pick at least one place you can train (bodyweight only is fine).');
+      const first = !profile;
+      profile = {
+        level: document.getElementById('level').value, goals, equipment,
+        unit: document.getElementById('unit').value,
+        injury: document.getElementById('injury-input').value.trim(),
+      };
+      Store.set('fitness:profile', profile);
+      if (draft) { draft = null; localStorage.removeItem('medic:fitness:draft'); }
+      showTab('today');
+      if (first) setTimeout(() => alert('You\'re set. Each day\'s session is on the Today tab.'), 50);
+    });
+
+    const showTab = setupTabs(tab => {
+      // First run: everything waits on the profile.
+      if (!profile && tab !== 'profile') return setTimeout(() => showTab('profile'));
+      if (tab === 'today') renderToday();
+      else if (tab === 'progress') renderProgress();
+      else fillProfile();
+    });
+  </script>
+</body>
+</html>
